@@ -3,31 +3,30 @@ import '../models/todo.dart';
 
 class TodoItemWidget extends StatefulWidget {
   final Todo todo;
-  final VoidCallback? onToggle;
-  final VoidCallback? onDelete;
-  final VoidCallback? onPin;
-  final bool showDeleteButton;
+  final void Function(Todo)? onToggleComplete;
+  final void Function(Todo)? onDelete;
+  final Color? backgroundColor;
+  final bool isNewlyAdded;
   final bool shouldFadeOut;
   final bool shouldFadeIn;
-  final bool isPinned;
 
   const TodoItemWidget({
     super.key,
     required this.todo,
-    this.onToggle,
+    this.onToggleComplete,
     this.onDelete,
-    this.onPin,
-    this.showDeleteButton = false,
+    this.backgroundColor,
+    this.isNewlyAdded = false,
     this.shouldFadeOut = false,
     this.shouldFadeIn = false,
-    this.isPinned = false,
   });
 
   @override
   State<TodoItemWidget> createState() => _TodoItemWidgetState();
 }
 
-class _TodoItemWidgetState extends State<TodoItemWidget> with SingleTickerProviderStateMixin {
+class _TodoItemWidgetState extends State<TodoItemWidget>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -38,20 +37,16 @@ class _TodoItemWidgetState extends State<TodoItemWidget> with SingleTickerProvid
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    
-    // Configurar animación basada en el tipo
-    if (widget.shouldFadeIn) {
-      _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-        CurvedAnimation(parent: _animationController, curve: Curves.easeInOut)
-      );
+    _fadeAnimation = Tween<double>(
+      begin: widget.isNewlyAdded ? 0.0 : 1.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+
+    if (widget.isNewlyAdded) {
       _animationController.forward();
-    } else if (widget.shouldFadeOut) {
-      _fadeAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
-        CurvedAnimation(parent: _animationController, curve: Curves.easeInOut)
-      );
-      _animationController.forward();
-    } else {
-      _fadeAnimation = Tween<double>(begin: 1.0, end: 1.0).animate(_animationController);
     }
   }
 
@@ -62,127 +57,123 @@ class _TodoItemWidgetState extends State<TodoItemWidget> with SingleTickerProvid
   }
 
   void _handleToggle() {
-    widget.onToggle?.call();
+    widget.onToggleComplete?.call(widget.todo);
   }
 
   void _handleDelete() {
-    widget.onDelete?.call();
+    widget.onDelete?.call(widget.todo);
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _fadeAnimation,
-      builder: (context, child) {
-        return Opacity(
-          opacity: _fadeAnimation.value,
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(2, 2),
-                ),
-              ],
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        decoration: BoxDecoration(
+          color: widget.backgroundColor ?? Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              spreadRadius: 0,
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-            child: Row(
-              children: [
-                // Checkbox circular
-                GestureDetector(
-                  onTap: _handleToggle,
-                  child: TweenAnimationBuilder<Color?>(
-                    duration: const Duration(milliseconds: 200),
-                    tween: ColorTween(
-                      begin: widget.todo.isCompleted ? Colors.white : Colors.black,
-                      end: widget.todo.isCompleted ? Colors.black : Colors.white,
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Checkbox personalizado
+              GestureDetector(
+                onTap: _handleToggle,
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: widget.todo.isCompleted
+                          ? Colors.green
+                          : Colors.grey.withValues(alpha: 0.4),
+                      width: 2,
                     ),
-                    builder: (context, color, child) {
-                      return Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: widget.todo.isCompleted ? Colors.black : Colors.white,
-                          border: Border.all(
-                            color: Colors.black,
-                            width: 2,
-                          ),
-                        ),
-                        child: AnimatedOpacity(
-                          duration: const Duration(milliseconds: 150),
-                          opacity: widget.todo.isCompleted ? 1.0 : 0.0,
-                          child: const Icon(
-                            Icons.check,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                      );
-                    },
+                    color: widget.todo.isCompleted
+                        ? Colors.green
+                        : Colors.transparent,
                   ),
+                  child: widget.todo.isCompleted
+                      ? const Icon(
+                          Icons.check,
+                          color: Colors.white,
+                          size: 16,
+                        )
+                      : null,
                 ),
-                
-                const SizedBox(width: 16),
-                
-                // Texto de la tarea
-                Expanded(
-                  child: TweenAnimationBuilder<Color?>(
-                    duration: const Duration(milliseconds: 200),
-                    tween: ColorTween(
-                      begin: widget.todo.isCompleted ? Colors.black : Colors.grey,
-                      end: widget.todo.isCompleted ? Colors.grey : Colors.black,
+              ),
+              const SizedBox(width: 16),
+              
+              // Contenido principal
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Título
+                    Text(
+                      widget.todo.title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        decoration: widget.todo.isCompleted
+                            ? TextDecoration.lineThrough
+                            : TextDecoration.none,
+                        color: widget.todo.isCompleted
+                            ? Colors.grey.withValues(alpha: 0.6)
+                            : Colors.black87,
+                      ),
                     ),
-                    builder: (context, color, child) {
-                      return AnimatedDefaultTextStyle(
-                        duration: const Duration(milliseconds: 200),
+                    
+                    // Descripción
+                    if (widget.todo.description.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.todo.description,
                         style: TextStyle(
-                          fontSize: 20,
-                          color: color ?? Colors.black,
-                          fontWeight: FontWeight.w400,
-                          decoration: widget.todo.isCompleted 
-                              ? TextDecoration.lineThrough 
-                              : TextDecoration.none,
+                          fontSize: 14,
+                          color: widget.todo.isCompleted
+                              ? Colors.grey.withValues(alpha: 0.5)
+                              : Colors.grey[600],
                         ),
-                        child: Text(widget.todo.title),
-                      );
-                    },
-                  ),
+                      ),
+                    ],
+                  ],
                 ),
-                
-                // Botón de pin (solo se muestra en tareas no completadas)
-                if (!widget.todo.isCompleted && widget.onPin != null)
-                  IconButton(
-                    icon: Icon(
-                      widget.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                      color: widget.isPinned ? Colors.blue : Colors.grey,
+              ),
+              
+              // Botón de eliminar para tareas completadas
+              if (widget.todo.isCompleted)
+                GestureDetector(
+                  onTap: _handleDelete,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.delete_outline,
+                      color: Colors.red,
                       size: 20,
                     ),
-                    onPressed: widget.onPin,
-                    visualDensity: VisualDensity.compact,
                   ),
-                
-                // Botón de eliminar (solo se muestra cuando showDeleteButton es true)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: widget.showDeleteButton ? 48 : 0,
-                  child: widget.showDeleteButton
-                      ? IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                          onPressed: _handleDelete,
-                          visualDensity: VisualDensity.compact,
-                        )
-                      : const SizedBox.shrink(),
                 ),
-              ],
-            ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
