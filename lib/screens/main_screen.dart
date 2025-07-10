@@ -3,7 +3,10 @@ import '../models/todo.dart';
 import '../services/database_service.dart';
 import '../services/notification_service.dart';
 import '../widgets/todo_list_view.dart';
+import '../widgets/notification_simulator.dart';
+import '../widgets/live_activity_simulator.dart';
 import 'add_todo.dart';
+import 'dart:io';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -17,6 +20,8 @@ class _MainScreenState extends State<MainScreen> {
   bool isLoading = true;
   final Set<String> _newlyAddedTodos = {};
   final Map<String, bool> _pinnedTodos = {};
+  bool _showNotificationSimulator = false;
+  bool _showLiveActivitySimulator = false;
 
   @override
   void initState() {
@@ -164,6 +169,12 @@ class _MainScreenState extends State<MainScreen> {
         await NotificationService.endLiveActivity(todo);
         _pinnedTodos[todo.id.toString()] = false;
         print('📌 Unpinned: ${todo.title}');
+        
+        // Ocultar simuladores si no hay más tareas pineadas
+        if (_getPinnedTodos.isEmpty) {
+          _showNotificationSimulator = false;
+          _showLiveActivitySimulator = false;
+        }
       } else {
         // Fijar tarea
         await NotificationService.pinTodoToNotification(todo);
@@ -180,6 +191,12 @@ class _MainScreenState extends State<MainScreen> {
               backgroundColor: Colors.green,
             ),
           );
+          
+          // Mostrar simuladores en emuladores
+          _showNotificationSimulator = true;
+          if (Platform.isIOS) {
+            _showLiveActivitySimulator = true;
+          }
         }
       }
       
@@ -233,6 +250,11 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  /// Obtiene la lista de tareas pineadas
+  List<Todo> get _getPinnedTodos {
+    return todos.where((todo) => _pinnedTodos[todo.id.toString()] == true).toList();
+  }
+
   /// Agrega una nueva tarea
   Future<void> _addTodo(Todo todo) async {
     try {
@@ -281,6 +303,22 @@ class _MainScreenState extends State<MainScreen> {
         backgroundColor: const Color(0xFFFAF9F9),
         elevation: 0,
         actions: [
+          // Botón para mostrar/ocultar simuladores
+          if (_getPinnedTodos.isNotEmpty)
+            IconButton(
+              onPressed: () {
+                setState(() {
+                  _showNotificationSimulator = !_showNotificationSimulator;
+                  if (Platform.isIOS) {
+                    _showLiveActivitySimulator = !_showLiveActivitySimulator;
+                  }
+                });
+              },
+              icon: Icon(
+                _showNotificationSimulator ? Icons.visibility_off : Icons.visibility,
+              ),
+              tooltip: 'Toggle Notification Simulator',
+            ),
           // Botón para probar notificaciones
           IconButton(
             onPressed: _testNotifications,
@@ -303,7 +341,40 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ],
       ),
-      body: _buildBody(),
+      body: Stack(
+        children: [
+          _buildBody(),
+          // Simuladores superpuestos
+          if (_showNotificationSimulator && _getPinnedTodos.isNotEmpty)
+            Positioned(
+              top: 16,
+              left: 0,
+              right: 0,
+              child: NotificationSimulator(
+                pinnedTodos: _getPinnedTodos,
+                onClose: () {
+                  setState(() {
+                    _showNotificationSimulator = false;
+                  });
+                },
+              ),
+            ),
+          if (_showLiveActivitySimulator && _getPinnedTodos.isNotEmpty && Platform.isIOS)
+            Positioned(
+              bottom: 100,
+              left: 0,
+              right: 0,
+              child: LiveActivitySimulator(
+                pinnedTodos: _getPinnedTodos,
+                onClose: () {
+                  setState(() {
+                    _showLiveActivitySimulator = false;
+                  });
+                },
+              ),
+            ),
+        ],
+      ),
     );
   }
 
